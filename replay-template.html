@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NQ Order Flow Replay · YUI Quant Lab</title>
+<style>
+:root{color-scheme:dark;--base:#0a0e17;--panel:#111827;--plot:#0d1421;--stroke:#263248;--text:#eaf0f7;--muted:#9aadc4;--subtle:#7487a1;--buy:#58dfc6;--sell:#fda6c5;--accent:#b4c6ff;--warm:#ffd591}
+*{box-sizing:border-box}
+body{margin:0;background:var(--base);color:var(--text);font:14px/1.45 "Segoe UI","Microsoft JhengHei",system-ui,sans-serif}
+.shell{width:min(1440px,100%);margin:auto;padding:30px clamp(14px,3vw,40px) 34px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:24px}
+.wordmark{display:flex;align-items:center;gap:9px;color:var(--accent);font:700 12px/1.2 "Segoe UI",sans-serif;letter-spacing:.14em}
+.mark{height:12px;width:14px;border-block:2px solid currentColor;display:inline-flex;align-items:center}
+.mark::before{content:"";width:10px;height:2px;background:currentColor}
+h1{font-size:clamp(32px,5vw,54px);line-height:1;margin:12px 0 9px;letter-spacing:-.045em}
+.subtitle{margin:0;color:var(--muted);font-size:14px}
+.session{display:flex;gap:10px;align-items:center;background:#141c30;border:1px solid #2e3d5a;border-radius:9px;padding:8px 11px;white-space:nowrap;color:#d2dfff;font:600 12px ui-monospace,Consolas,monospace}
+.session span{color:var(--muted);font-weight:500}
+.workspace{border:1px solid var(--stroke);border-radius:15px;background:var(--panel);overflow:hidden}
+.tape{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--stroke)}
+.readout{padding:13px 17px;border-right:1px solid var(--stroke);white-space:nowrap}
+.readout:last-child{border:0}.readout span{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
+.readout strong{font:600 clamp(15px,2.15vw,26px)/1.2 ui-monospace,Consolas,monospace;letter-spacing:-.045em}
+.readout small{color:var(--muted);margin-left:6px;font-size:11px}
+#bid{color:var(--buy)}#ask{color:var(--sell)}
+.chartbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 16px;background:#101725}
+.key,.toggles{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;color:var(--muted);font-size:12px}
+.key span{display:inline-flex;align-items:center;gap:5px}.key i{height:9px;width:9px;border-radius:50%;display:inline-block}.kb{background:var(--buy)}.ks{border:1.5px solid var(--sell)}.ku{background:#a7b7c8}
+.key .scale{width:56px;height:7px;border-radius:6px;background:linear-gradient(90deg,#222849,#734775,#b76d76,#ffd591)}
+.toggles label{display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap}
+input[type=checkbox]{margin:0;accent-color:var(--accent)}
+figure{margin:0;position:relative;background:var(--plot)}
+#chart{display:block;width:100%;height:clamp(360px,55vh,565px);outline:none}
+#tip{pointer-events:none;position:absolute;z-index:1;padding:9px 11px;background:#172337;border:1px solid #405475;border-radius:7px;color:var(--text);font:12px/1.65 ui-monospace,Consolas,"Microsoft JhengHei",monospace;box-shadow:0 5px 16px #06090e91;white-space:nowrap}
+#tip[hidden]{display:none}
+.transport{display:grid;grid-template-columns:auto auto minmax(90px,1fr) auto auto;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid var(--stroke)}
+button,select{font:inherit;color:var(--text);background:#182239;border:1px solid #344462;border-radius:8px;padding:7px 10px;min-height:36px;cursor:pointer}
+button:hover, select:hover{background:#223050}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#play{background:var(--accent);color:#10182c;border:0;font-weight:750;padding-inline:12px;min-width:76px}
+#play:hover{background:#d3ddff}#scrub{width:100%;accent-color:var(--accent);cursor:pointer;margin:0}#progress{white-space:nowrap;color:var(--muted);font:12px ui-monospace,Consolas,monospace}
+.caption{margin-top:13px;color:var(--muted);font-size:12px}
+details{border-top:1px solid var(--stroke);margin-top:17px;padding:14px 0 0;color:var(--muted)}
+summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:84ch;margin:9px 0}
+@media(max-width:600px){.shell{padding-top:18px}header{align-items:flex-start;flex-direction:column;gap:9px;margin-bottom:15px}.session{padding:5px 8px}.readout{padding:9px 7px}.readout small{display:none}.chartbar{padding:10px 8px;gap:8px}.key,.toggles{gap:6px 11px}.key .scale{width:30px}.transport{padding:12px 8px;gap:6px;grid-template-columns:auto auto minmax(42px,1fr) auto}.transport select{grid-column:4;grid-row:1}.transport #progress{grid-column:3;grid-row:2;justify-self:center}.transport button{padding-inline:7px}#play{min-width:56px}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div>
+      <div class="wordmark"><i class="mark" aria-hidden="true"></i>YUI QUANT LAB</div>
+      <h1>NQ 回放</h1>
+      <p class="subtitle">委託簿熱圖與成交氣泡</p>
+    </div>
+    <div class="session">2026-01-05 <span>05:00:02–05:01:02 · 來源時間</span></div>
+  </header>
+  <section class="workspace" aria-label="NQ 回放播放器">
+    <div class="tape">
+      <div class="readout"><span>回放時間</span><strong id="clock">—</strong></div>
+      <div class="readout"><span>最佳買價</span><strong id="bid">—</strong><small id="bid-size"></small></div>
+      <div class="readout"><span>最佳賣價</span><strong id="ask">—</strong><small id="ask-size"></small></div>
+      <div class="readout"><span>累計成交</span><strong id="volume">—</strong><small>口</small></div>
+    </div>
+    <div class="chartbar">
+      <div class="key" aria-label="圖例">
+        <span>掛單量 <i class="scale" aria-hidden="true"></i> <b id="scaleMax"></b></span>
+        <span><i class="kb" aria-hidden="true"></i>推估買方</span>
+        <span><i class="ks" aria-hidden="true"></i>推估賣方</span>
+        <span><i class="ku" aria-hidden="true"></i>方向未知</span>
+      </div>
+      <div class="toggles">
+        <label><input id="heatToggle" type="checkbox" checked> 熱圖</label>
+        <label><input id="tradeToggle" type="checkbox" checked> 成交氣泡</label>
+      </div>
+    </div>
+    <figure>
+      <canvas id="chart" role="img" aria-label="NQ 時間、價格、掛單熱圖與成交氣泡。右側顯示目前可見深度。"></canvas>
+      <div id="tip" hidden></div>
+    </figure>
+    <div class="transport">
+      <button id="play" type="button" aria-label="播放">▶ 播放</button>
+      <button id="restart" type="button">從頭</button>
+      <input id="scrub" type="range" min="0" max="60000" step="10" aria-label="回放進度">
+      <output id="progress" for="scrub">00:00 / 01:00</output>
+      <select id="speed" aria-label="播放速度"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+    </div>
+  </section>
+  <div class="caption">熱圖每 100 ms 取樣，亮度代表掛單口數。氣泡面積代表成交口數。深色空白代表該格無可顯示深度。</div>
+  <details>
+    <summary>查看回放驗證</summary>
+    <p id="evidence"></p>
+    <p>最佳買賣價與其掛單量取自 L1。深度按買賣側和價格回放新增、更新與移除，只保留距同側最佳價九個 tick 以內已觀測的價位。這是有限深度回放，來源時區及更深檔位仍待核對。</p>
+    <p>成交價等於該列之前的最佳賣價或買價時，分別推估為主動買方或賣方。其餘保留方向未知。</p>
+  </details>
+</main>
+<script id="replay-data" type="application/json">{}</script>
+<script>
+"use strict";
+const data = JSON.parse(document.getElementById("replay-data").textContent);
+const $ = id => document.getElementById(id);
+const canvas = $("chart");
+const ctx = canvas.getContext("2d");
+const heat = document.createElement("canvas");
+const buy = "#58dfc6", sell = "#fda6c5", neutral = "#c0cddd";
+const shorts = {1:["推估買方",buy], "-1":["推估賣方",sell], 0:["方向未知",neutral]};
+const allFrames = [data.initial, ...data.frames].filter(Boolean);
+const prices = data.trades.map(trade => trade[1]);
+const amounts = [];
+for (const [bid, bidSize, ask, askSize, levels] of allFrames) {
+  prices.push(bid, ask);
+  amounts.push(bidSize, askSize);
+  for (const [price, size] of levels) {
+    prices.push(price);
+    amounts.push(size);
+  }
+}
+const low = Math.min(...prices) - 2;
+const high = Math.max(...prices) + 2;
+const heatLimit = Math.ceil(Math.max(...amounts) / 5) * 5;
+const tickCount = high - low + 1;
+heat.width = data.frames.length;
+heat.height = tickCount;
+
+function tone(size) {
+  const scale = [[30,36,65],[65,48,91],[130,73,109],[193,109,110],[255,213,145]];
+  const at = Math.pow(Math.min(1, size / heatLimit), .65) * (scale.length - 1);
+  const start = Math.min(scale.length - 2, Math.floor(at));
+  return scale[start].map((channel,i) => Math.round(channel + (scale[start + 1][i] - channel) * (at - start)));
+}
+const pix = heat.getContext("2d");
+for (const [index, frame] of data.frames.entries()) {
+  if (!frame) continue;
+  const [bid, bidSize, ask, askSize, levels] = frame;
+  for (const [price, size] of [...levels, [bid, bidSize], [ask, askSize]]) {
+    if (size <= 0) continue;
+    pix.fillStyle = "rgb(" + tone(size).join(",") + ")";
+    pix.fillRect(index, high - price, 1, 1);
+  }
+}
+$("scaleMax").textContent = heatLimit + " 口";
+const checks = data.checks;
+$("evidence").textContent =
+  checks.rows.toLocaleString() + " 筆原始事件，含 " + checks.depthEvents.toLocaleString() + " 筆深度更新。"
+  + "成交 " + checks.tradeCount + " 筆、共 " + checks.volume + " 口，其中 " + checks.unknownAggressor + " 筆方向未知。"
+  + checks.framesWithBothDepthSides + " 個畫面均有雙側可見深度。"
+  + "有同側 L1 可對照的 L2 第 1 檔更新中，" + checks.rankOneExact + "/" + checks.rankOneEligible
+  + " 筆的價格距最佳報價恰好一個 tick。";
+
+const priceText = tick => (tick / 4).toFixed(2);
+const pad = number => String(number).padStart(2, "0");
+const elapsed = ms => pad(Math.floor(ms / 60000)) + ":" + pad(Math.floor(ms / 1000) % 60);
+const sourceMs = data.windowStart.split(":").reduce((sum, part) => sum * 60 + Number(part), 0) * 1000;
+function timeText(ms, fractional = false) {
+  const total = sourceMs + Math.floor(ms);
+  const whole = Math.floor(total / 1000);
+  const clock = pad(Math.floor(whole / 3600)) + ":" + pad(Math.floor(whole / 60) % 60) + ":" + pad(whole % 60);
+  return fractional ? clock + "." + String(total % 1000).padStart(3, "0") : clock;
+}
+function atFrame(ms) {
+  const index = Math.floor(ms / data.step) - 1;
+  return index < 0 ? data.initial : data.frames[Math.min(index, data.frames.length - 1)];
+}
+
+let position = 20_000;
+let running = false, lastAnimation = null, animationId = 0;
+let width, height, plot, pointer;
+const theme = {
+  plot:"#0d1421", dom:"#111b2b", line:"#27364c", tick:"#a0b2c7",
+  bid:"#69c9bb", ask:"#dd96b3"
+};
+function layout() {
+  const box = canvas.getBoundingClientRect();
+  const density = Math.min(window.devicePixelRatio || 1, 2);
+  width = box.width;
+  height = box.height;
+  canvas.width = Math.max(1, Math.round(width * density));
+  canvas.height = Math.max(1, Math.round(height * density));
+  ctx.setTransform(density, 0, 0, density, 0, 0);
+  const compact = width < 650;
+  const priceLane = compact ? 59 : 82;
+  const dom = compact ? 67 : 146;
+  plot = {x:compact ? 8 : 17, y:30, right:width-dom-priceLane-12, bottom:height-32, domX:width-dom-8};
+  plot.w = plot.right - plot.x;
+  plot.h = plot.bottom - plot.y;
+  plot.row = plot.h / tickCount;
+  render();
+}
+const xAt = ms => plot.x + (ms / data.duration) * plot.w;
+const yAt = tick => plot.y + (high - tick + .5) * plot.row;
+function hline(from, to, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(from, Math.floor(y), to-from, 1);
+}
+function label(text, x, y, color = theme.tick, align = "left", font = '11px Consolas, monospace') {
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+}
+function drawHeat() {
+  if (!$("heatToggle").checked) return;
+  const columns = Math.floor(position / data.step);
+  if (columns <= 0) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(heat, 0, 0, columns, tickCount,
+    plot.x, plot.y, plot.w * columns / data.frames.length, plot.h);
+}
+function drawQuotes(column) {
+  for (const [field, color, dashed] of [[0,theme.bid,false],[2,theme.ask,true]]) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.15;
+    ctx.setLineDash(dashed ? [4,3] : []);
+    ctx.beginPath();
+    let previous = data.initial?.[field];
+    for (let index = 0; index <= column; index++) {
+      const offset = index * data.step;
+      const frame = index === 0 ? data.initial : data.frames[index - 1];
+      const value = frame?.[field];
+      if (value === undefined) {
+        previous = undefined;
+        continue;
+      }
+      const x = xAt(offset);
+      if (previous === undefined || index === 0) ctx.moveTo(x,yAt(value));
+      else {
+        ctx.lineTo(x,yAt(previous));
+        ctx.lineTo(x,yAt(value));
+      }
+      previous = value;
+    }
+    if (previous !== undefined) ctx.lineTo(xAt(position), yAt(previous));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+function bubble(trade) {
+  const [time, price, quantity, side] = trade;
+  const radius = 4.2 * Math.sqrt(quantity);
+  ctx.beginPath();
+  ctx.arc(xAt(time), yAt(price), radius, 0, Math.PI * 2);
+  ctx.fillStyle = side === 1 ? "#58dfc6a0" : side === -1 ? "#fda6c54d" : "#c0cddd74";
+  ctx.strokeStyle = shorts[side][1];
+  ctx.lineWidth = 1.05;
+  ctx.fill();
+  ctx.stroke();
+}
+function drawDepth(frame) {
+  label("當前深度", plot.domX, 15, theme.tick, "left", '11px "Microsoft JhengHei", sans-serif');
+  if (!frame) return;
+  const [bid, bidSize, ask, askSize, levels] = frame;
+  const barSpace = Math.max(10, width - plot.domX - 37);
+  for (const [price, size, side] of [...levels,[bid,bidSize,0],[ask,askSize,1]]) {
+    const length = (size / heatLimit) * barSpace;
+    const y = yAt(price);
+    ctx.fillStyle = side === 0 ? "#348c81" : "#a2597c";
+    if (price === bid || price === ask) ctx.fillStyle = side === 0 ? buy : sell;
+    ctx.fillRect(plot.domX, y - plot.row * .33, length, plot.row * .66);
+    label(String(size), plot.domX + length + 4, y, theme.tick, "left", "10px Consolas, monospace");
+  }
+  for (const [price, color] of [[bid,buy],[ask,sell]]) {
+    const y = yAt(price);
+    ctx.fillStyle = price === bid ? "#153935" : "#3e263b";
+    ctx.fillRect(plot.right + 2, y - 7, 55, 14);
+    label(priceText(price), plot.right + 6, y, color);
+  }
+}
+function describePointer() {
+  const tip = $("tip");
+  if (!pointer || pointer.x < plot.x || pointer.x > xAt(position) ||
+      pointer.y < plot.y || pointer.y > plot.bottom) {
+    tip.hidden = true;
+    return;
+  }
+  const time = Math.min(position, (pointer.x - plot.x) / plot.w * data.duration);
+  const price = high - Math.floor((pointer.y - plot.y) / plot.row);
+  let nearest, distance = 11;
+  if ($("tradeToggle").checked) for (const trade of data.trades) {
+    if (trade[0] > position) break;
+    const offset = Math.hypot(xAt(trade[0]) - pointer.x, yAt(trade[1]) - pointer.y);
+    if (offset < distance) {
+      nearest = trade;
+      distance = offset;
+    }
+  }
+  let rows;
+  if (nearest) {
+    rows = [timeText(nearest[0],true) + " · " + priceText(nearest[1]),
+      nearest[2] + " 口 · " + shorts[nearest[3]][0]];
+  } else {
+    const frame = atFrame(time);
+    const quantity = frame ? (price === frame[0] ? frame[1] : price === frame[2] ? frame[3] : frame[4].find(item => item[0] === price)?.[1]) : undefined;
+    rows = [timeText(time,true) + " · " + priceText(price), quantity === undefined ? "無可顯示深度" : "可見掛單 " + quantity + " 口"];
+  }
+  tip.textContent = rows.join("\n");
+  tip.style.whiteSpace = "pre";
+  tip.hidden = false;
+  tip.style.left = Math.max(0, Math.min(pointer.x + 12, width - tip.offsetWidth - 5)) + "px";
+  tip.style.top = Math.max(0, Math.min(pointer.y + 12, height - tip.offsetHeight - 5)) + "px";
+  hline(plot.x, plot.right, yAt(price), "#60738e");
+}
+function render() {
+  if (!plot || plot.w <= 0) return;
+  const frame = atFrame(position);
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle = theme.plot;
+  ctx.fillRect(0,0,width,height);
+  ctx.fillStyle = theme.dom;
+  ctx.fillRect(plot.domX - 5,plot.y,width-plot.domX-1,plot.h);
+  label("價格", plot.right + 7, 15, theme.tick, "left", '11px "Microsoft JhengHei", sans-serif');
+  drawHeat();
+  const tickStep = Math.max(4, Math.ceil(tickCount / 28) * 4);
+  for (let tick = Math.ceil(low / tickStep) * tickStep; tick <= high; tick += tickStep) {
+    const y = yAt(tick);
+    hline(plot.x, plot.right, y, "#31405a66");
+    if (!frame || (Math.abs(y-yAt(frame[0])) > 13 && Math.abs(y-yAt(frame[2])) > 13))
+      label(priceText(tick), plot.right + 6, y);
+  }
+  const gridCount = width < 600 ? 3 : 6;
+  for (let index = 0; index <= gridCount; index++) {
+    const time = (data.duration/gridCount) * index;
+    const x = xAt(time);
+    ctx.fillStyle = theme.line;
+    ctx.fillRect(Math.floor(x), plot.y, 1, plot.h);
+    label(timeText(time), x, plot.bottom+17, theme.tick, index === 0 ? "left" : index === gridCount ? "right" : "center");
+  }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(plot.x,plot.y,plot.w,plot.h);
+  ctx.clip();
+  drawQuotes(Math.floor(position/data.step));
+  let volume = 0;
+  for (const trade of data.trades) {
+    if (trade[0] > position) break;
+    volume += trade[2];
+    if ($("tradeToggle").checked) bubble(trade);
+  }
+  ctx.restore();
+  const cursor = xAt(position);
+  ctx.fillStyle = "#b0c4e5a0";
+  ctx.fillRect(Math.floor(cursor),plot.y,1,plot.h);
+  drawDepth(frame);
+  describePointer();
+  $("clock").textContent = timeText(position);
+  $("bid").textContent = frame ? priceText(frame[0]) : "—";
+  $("ask").textContent = frame ? priceText(frame[2]) : "—";
+  $("bid-size").textContent = frame ? frame[1] + " 口" : "";
+  $("ask-size").textContent = frame ? frame[3] + " 口" : "";
+  $("volume").textContent = String(volume);
+  $("progress").textContent = elapsed(position) + " / " + elapsed(data.duration);
+  $("scrub").value = Math.round(position);
+  $("scrub").setAttribute("aria-valuetext", timeText(position));
+}
+function animate(now) {
+  if (!running) return;
+  if (lastAnimation !== null) {
+    position = Math.min(data.duration,position + (now-lastAnimation)*Number($("speed").value));
+    render();
+  }
+  lastAnimation = now;
+  if (position >= data.duration) setPlaying(false);
+  else animationId = requestAnimationFrame(animate);
+}
+function setPlaying(next) {
+  if (running === next) return;
+  running = next;
+  $("play").textContent = running ? "Ⅱ 暫停" : "▶ 播放";
+  $("play").setAttribute("aria-label", running ? "暫停" : "播放");
+  lastAnimation = null;
+  cancelAnimationFrame(animationId);
+  if (running) {
+    if (position >= data.duration) {
+      position = 0;
+      render();
+    }
+    animationId = requestAnimationFrame(animate);
+  }
+}
+$("play").addEventListener("click", () => setPlaying(!running));
+$("restart").addEventListener("click", () => { setPlaying(false); position = 0; render(); });
+$("scrub").addEventListener("input", event => { setPlaying(false); position = Number(event.target.value); render(); });
+for (const id of ["heatToggle","tradeToggle"]) $(id).addEventListener("change",render);
+canvas.addEventListener("pointermove", event => {
+  const box = canvas.getBoundingClientRect();
+  pointer = {x:event.clientX-box.left,y:event.clientY-box.top};
+  render();
+});
+canvas.addEventListener("pointerleave", () => { pointer = null; render(); });
+new ResizeObserver(layout).observe(canvas);
+layout();
+</script>
+</body>
+</html>
