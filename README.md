@@ -26,7 +26,7 @@ Open the generated `index.html` in your browser. It contains everything needed f
 | Trade bubbles | Each bubble marks a recorded execution. Its area represents traded contracts. Teal and pink show inferred buy and sell aggression. Gray marks an unknown side. |
 | Depth ladder | The bars on the right show visible resting size by price at the current replay position. |
 
-The player opens paused 20 seconds into the clip so the chart is visible immediately. Use the first button to play or pause and the second to return to the start. Drag the timeline to seek, choose a speed from 0.5× to 4×, or toggle either chart layer. Hover over the chart for a price-level or trade tooltip.
+The player opens paused 20 seconds into the clip so the chart is visible immediately. Use **Play** or **Pause** to control playback and **Restart** to return to the start. Drag the timeline to seek, choose a speed from 0.5× to 4×, or toggle either chart layer. Hover over the chart for a price-level or trade tooltip.
 
 ## Input format
 
