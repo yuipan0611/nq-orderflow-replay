@@ -4,6 +4,19 @@ An offline order flow viewer for E-mini Nasdaq-100 (NQ) futures. Replay a one-mi
 
 This demo uses the January 5, 2026 recording from `05:00:02` up to `05:01:02`. The player displays timestamps as recorded. The source time zone is unverified.
 
+## Preview
+
+[![NQ Replay player with the order book heatmap, trade bubbles, depth ladder, and playback controls](docs/replay-overview.jpg)](docs/synthetic-replay.html)
+
+Open the [interactive demo file](docs/synthetic-replay.html), use **Download raw file**, then open the saved HTML in your browser. The standalone 60-second demo uses synthetic market data and runs offline. You can play or pause, seek, change playback speed, toggle chart layers, and hover over trades or price levels.
+
+<details>
+<summary>Trade tooltip and depth ladder</summary>
+
+![Trade tooltip showing time, price, size, and inferred side next to the depth ladder](docs/replay-trade-detail.jpg)
+
+</details>
+
 ## Quick start
 
 You need Python 3.10 or later, a modern browser, and your own copy of the `20260105.csv` recording. The generator uses the Python standard library, so there are no packages to install. Market data is kept outside the repository.
