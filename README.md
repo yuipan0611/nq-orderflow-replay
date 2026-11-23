@@ -33,11 +33,29 @@ Open the generated `index.html` in your browser. It contains everything needed f
 
 ## Read the chart
 
-| Display | Meaning |
-| --- | --- |
-| Heatmap | Time runs left to right and price runs bottom to top. Brighter cells show more resting contracts at that price. Blank cells indicate no displayed depth. |
-| Trade bubbles | Each bubble marks a recorded execution. Its area represents traded contracts. Teal and pink show inferred buy and sell aggression. Gray marks an unknown side. |
-| Depth ladder | The bars on the right show visible resting size by price at the current replay position. |
+The **order book** lists visible buy and sell orders waiting at each price. These are called **resting orders**. When a buy and a sell match, the resulting execution appears as a **trade**. The player brings these two views together.
+
+![Annotated replay chart. 1 points to a bright heatmap band at 20,601.75. 2 points to a sell trade bubble at 20,600.00. 3 outlines the best bid and ask in the depth ladder.](docs/read-the-chart.jpg)
+
+*The numbered examples below refer to this screenshot from the synthetic demo.*
+
+### 1. Heatmap · Where were orders waiting?
+
+Read **time** from left to right and **price** from bottom to top. Each colored cell shows how many resting contracts were visible at that price in a 100 ms sample. Brighter cells mean more contracts. A bright horizontal band means orders kept appearing at the same price across successive samples. The chart reveals that history up to the replay cursor.
+
+In the example, the highlighted band shows **44 resting contracts at 20,601.75** around **00:00:14**. A band can brighten as orders arrive or fade as orders are filled, canceled, or leave the displayed range. Use trade bubbles to check where executions occurred.
+
+### 2. Trade bubbles · What actually traded?
+
+Each bubble marks an execution at a specific **time and price**. A larger circle represents more traded contracts. The quantity is encoded by the circle's area. On the historical replay, teal means the trade matched the preceding best ask and is inferred to be buy-initiated. Pink means it matched the preceding best bid and is inferred to be sell-initiated. Gray means the initiating side is unknown.
+
+Hover over the highlighted bubble in the synthetic demo to see **11 contracts at 20,600.00** at **00:00:46.425**, labeled **Inferred sell**.
+
+### 3. Depth ladder · What is still waiting right now?
+
+The bars on the right show a **single snapshot** at the replay cursor. Each row is a price. Teal bars show buy orders (*bids*) and pink bars show sell orders (*asks*). A longer bar means more visible contracts waiting at that price. Drag the timeline to see the ladder update to the selected moment.
+
+At about **00:00:55**, the highlighted rows show **6 contracts at the best bid of 20,599.50** and **19 contracts at the best ask of 20,600.00**.
 
 The player opens paused 20 seconds into the clip so the chart is visible immediately. Use **Play** or **Pause** to control playback and **Restart** to return to the start. Drag the timeline to seek, choose a speed from 0.5× to 4×, or toggle either chart layer. Hover over the chart for a price-level or trade tooltip.
 
