@@ -79,10 +79,10 @@ function loadWorker() {
   }
   return {
     context,
-    async ask(kind, file, end = "10:00:02") {
+    async ask(kind, file, { symbol = "NQH6", start = "10:00:00", end = "10:00:02" } = {}) {
       result = undefined;
-      await handler({ data: { kind, id: 1, file, symbol: "NQH6", date: UTC_DATE,
-        start: kind === "replay" ? "10:00:00" : undefined, end: kind === "replay" ? end : undefined } });
+      await handler({ data: { kind, id: 1, file, symbol, date: UTC_DATE,
+        start: kind === "replay" ? start : undefined, end: kind === "replay" ? end : undefined } });
       return JSON.parse(JSON.stringify(result));
     },
   };
@@ -103,7 +103,7 @@ test("reads compressed DBN v1–v3 metadata and replays a selected contract by c
     assert.deepEqual(response.result.initial, opening);
     assert.deepEqual(response.result.frames.slice(0, 3), [opening, null, opening]);
     assert.equal(response.result.frames.length, 20);
-    const missingEnd = await ask("replay", file, "10:00:03");
+    const missingEnd = await ask("replay", file, { end: "10:00:03" });
     assert.match(missingEnd.message, /no record at or after/);
   }
 });
@@ -117,4 +117,22 @@ test("handles DBN headers and records split between decoder chunks", () => {
   for (let offset = 0; offset < bytes.length; offset += 17) parser.push(bytes.subarray(offset, offset + 17));
   assert.doesNotThrow(() => parser.finish());
   assert.equal(count, 6);
+});
+
+test("the bundled practice DBN has two tradable contracts across its advertised window", async () => {
+  const asset = readFileSync(join(__dirname, "../docs/synthetic-dbn-sample.js"), "utf8");
+  const sample = vm.runInNewContext(asset + "\nNQ_CLASSROOM_SAMPLE;");
+  const file = new File([Buffer.from(sample.compressed, "base64")], sample.filename);
+  const { ask } = loadWorker();
+  const metadata = (await ask("inspect", file)).result;
+  assert.deepEqual(Object.keys(metadata.contracts), ["NQH6", "NQM6"]);
+  assert.equal(metadata.firstDate, UTC_DATE);
+  const bids = new Set();
+  for (const symbol of Object.keys(metadata.contracts)) {
+    const clip = (await ask("replay", file, { symbol, start: sample.start, end: sample.end })).result;
+    assert.equal(clip.frames.length, 1800);
+    assert.ok(clip.trades.length > 0);
+    bids.add(clip.initial[0]);
+  }
+  assert.equal(bids.size, 2);
 });

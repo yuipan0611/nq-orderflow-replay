@@ -12,9 +12,13 @@
   const load = $("load-local");
   const find = $("find-window");
   const clear = $("clear-file");
+  const example = $("load-example");
+  const classroom = typeof NQ_CLASSROOM_SAMPLE === "undefined" ? null : NQ_CLASSROOM_SAMPLE;
   const status = $("import-status");
   let worker;
+  let workerReady = false;
   let file = null;
+  let usingExample = false;
   let metadata = null;
   let pending = null;
   let jobId = 0;
@@ -26,12 +30,14 @@
   }
 
   function enableControls() {
+    fileInput.disabled = !workerReady;
     date.disabled = !metadata;
     contract.disabled = !metadata || contract.options.length === 0;
     start.disabled = end.disabled = !contract.value;
-    find.disabled = !worker || !contract.value || Boolean(pending);
+    find.disabled = !workerReady || !contract.value || Boolean(pending);
     load.disabled = find.disabled || !start.value || !end.value;
     clear.hidden = !file;
+    example.disabled = !workerReady || !classroom;
   }
 
   function displayContracts() {
@@ -63,16 +69,21 @@
     enableControls();
   }
 
-  function chooseFile(next) {
+  function exampleHint() {
+    return usingExample ? "Synthetic example loaded. Available window " + classroom.start + "–" + classroom.end + " UTC." : "";
+  }
+
+  function chooseFile(next, synthetic = false) {
     cancelJob();
     file = next;
+    usingExample = synthetic;
     metadata = null;
     date.value = start.value = end.value = "";
     displayContracts();
     loadNqReplay(null);
     showStatus();
     enableControls();
-    if (file && worker) run("inspect");
+    if (file && workerReady) run("inspect");
   }
 
   panel.hidden = false;
@@ -91,16 +102,22 @@
     fileInput.disabled = true;
     return;
   }
+  enableControls();
   worker.addEventListener("error", () => {
     worker.terminate();
     worker = null;
+    workerReady = false;
     pending = null;
-    fileInput.disabled = true;
     enableControls();
     showStatus("The local file reader could not start. Reload this page to try again.", true);
   });
   worker.addEventListener("message", ({ data }) => {
-    if (data.kind === "ready" || !pending || pending.id !== data.id) return;
+    if (data.kind === "ready") {
+      workerReady = true;
+      enableControls();
+      return;
+    }
+    if (!pending || pending.id !== data.id) return;
     const { kind } = pending;
     if (data.kind === "progress") {
       showStatus(messages[kind] + "… " + data.percent + "%");
@@ -119,14 +136,18 @@
       date.max = result.lastDate ?? "";
       date.value = result.firstDate;
       displayContracts();
-      showStatus(contract.options.length ? "Choose a contract and UTC time range." : "Choose a date with an NQ contract.");
+      if (usingExample) {
+        start.value = classroom.start;
+        end.value = classroom.defaultEnd;
+      }
+      showStatus(exampleHint() || (contract.options.length ? "Choose a contract and UTC time range." : "Choose a date with an NQ contract."));
     } else if (kind === "suggest") {
       start.value = result.start;
       end.value = result.end;
       showStatus("Suggested window with trades. Select Load replay to open it.");
     } else {
       try {
-        loadNqReplay(result);
+        loadNqReplay({ ...result, synthetic: usingExample });
         const count = result.trades.length;
         showStatus(count + (count === 1 ? " trade in this window." : " trades in this window."));
         $("play").focus({ preventScroll: true });
@@ -139,6 +160,11 @@
     enableControls();
   });
   fileInput.addEventListener("change", () => chooseFile(fileInput.files[0] ?? null));
+  example.addEventListener("click", () => {
+    const bytes = Uint8Array.from(atob(classroom.compressed), character => character.charCodeAt(0));
+    fileInput.value = "";
+    chooseFile(new File([bytes], classroom.filename, { type: "application/zstd" }), true);
+  });
   clear.addEventListener("click", () => {
     fileInput.value = "";
     chooseFile(null);
@@ -153,7 +179,7 @@
   contract.addEventListener("change", () => {
     cancelJob();
     loadNqReplay(null);
-    showStatus();
+    showStatus(exampleHint());
     enableControls();
   });
   for (const input of [start, end]) input.addEventListener("input", () => {

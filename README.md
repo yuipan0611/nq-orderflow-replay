@@ -4,7 +4,7 @@ An educational order flow replay for E-mini Nasdaq-100 (NQ) futures. Follow rest
 
 ## Preview
 
-[**Play the synthetic demo**](https://yuipan0611.github.io/nq-orderflow-replay/synthetic-replay.html) · [**Open your own DBN file**](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html) · [View the full-size screenshot](docs/replay-overview.jpg)
+[**Play the synthetic demo**](https://yuipan0611.github.io/nq-orderflow-replay/synthetic-replay.html) · [**Open the DBN practice player**](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html) · [View the full-size screenshot](docs/replay-overview.jpg)
 
 ![Animated NQ replay showing the order book heatmap, trade bubbles, and depth ladder updating during playback](docs/replay-preview.gif)
 
@@ -58,9 +58,11 @@ The original command using `--source` on its own still selects **2026-01-05 05:0
 
 ### In a browser
 
-1. [Open the local-file player](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html) and choose your Databento `.dbn.zst` file.
+1. [Open the browser player](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html). Choose your Databento `.dbn.zst` file or select **Load synthetic example**.
 2. Choose the UTC date and NQ outright contract. Enter a start and end time or select **Find a trade window** to get a suggested range.
 3. Select **Load replay**, then use **Play** and the timeline.
+
+The bundled practice file contains two synthetic contracts, **NQH6** and **NQM6**, on **2026-01-06 from 14:30 to 14:33 UTC**. Try the prefilled minute, then switch contracts or adjust the time range and load again.
 
 The browser accepts Databento DBN v1–v3 with CME Globex `GLBX.MDP3` `mbp-10` data and embedded symbol mappings. Each window can span up to five minutes on one UTC date. The browser decompresses the file in a background worker and keeps the selected replay in memory. The file, symbol choices, and replay stay on your device. Use **Clear file** to remove them from the page. No installation or API key is required.
 
@@ -148,5 +150,6 @@ The original clip contains **3,217 events**, including **1,874 depth updates**, 
 - [`replay.py`](replay.py) parses the recording, builds the replay, prints validation statistics, and writes the standalone page.
 - [`databento_input.py`](databento_input.py) reads local CME MBP-10 files and converts book snapshots and trades into replay events.
 - [`docs/replay-player.html`](docs/replay-player.html) contains the browser and offline Canvas player. [`docs/local-dbn-worker.js`](docs/local-dbn-worker.js) parses browser files using the bundled [fzstd decoder](https://github.com/101arrowz/fzstd/tree/v0.1.1).
+- [`scripts/build_browser_sample.py`](scripts/build_browser_sample.py) generates the browser practice file from synthetic data.
 - [`scripts/build_samples.py`](scripts/build_samples.py) generates the synthetic CSVs. [`samples.json`](samples.json) records their release version, windows, and checksums.
 - `index.html` is generated locally and ignored by Git because it embeds the replay data.
