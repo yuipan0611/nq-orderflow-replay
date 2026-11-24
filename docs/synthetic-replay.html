@@ -44,6 +44,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 details{border-top:1px solid var(--stroke);margin-top:17px;padding:14px 0 0;color:var(--muted)}
 summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:84ch;margin:9px 0}
 @media(max-width:600px){.shell{padding-top:18px}header{align-items:flex-start;flex-direction:column;gap:9px;margin-bottom:15px}.session{padding:5px 8px}.readout{padding:9px 7px}.readout small{display:none}.chartbar{padding:10px 8px;gap:8px}.key,.toggles{gap:6px 11px}.key .scale{width:30px}.transport{padding:12px 8px;gap:6px;grid-template-columns:auto auto minmax(42px,1fr) auto}.transport select{grid-column:4;grid-row:1}.transport #progress{grid-column:3;grid-row:2;justify-self:center}.transport button{padding-inline:7px}#play{min-width:56px}}
+.demo-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.local-file-link{color:var(--accent);font-weight:650;text-underline-offset:.2em}
+.local-file-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 </style>
 </head>
 <body>
@@ -54,7 +57,10 @@ summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:8
       <h1>NQ Replay</h1>
       <p class="subtitle">Order book heatmap and trade bubbles</p>
     </div>
-    <div class="session">SYNTHETIC DATA <span>60-second replay</span></div>
+    <div class="demo-actions">
+      <a class="local-file-link" href="replay-player.html">Open your own DBN file</a>
+      <div class="session">SYNTHETIC DATA <span>60-second replay</span></div>
+    </div>
   </header>
   <section class="workspace" aria-label="NQ replay player">
     <div class="tape">

@@ -300,8 +300,9 @@ def main():
             data['synthetic'] = True
         if args.write:
             html = HERE / 'index.html'
-            template = html.with_name('replay-template.html')
+            template = HERE / 'docs' / 'replay-player.html'
             text = template.read_text(encoding='utf-8')
+            text = re.sub(r'<!-- browser-import:start -->[\s\S]*?<!-- browser-import:end -->', '', text)
             payload = json.dumps(data, separators=(',', ':')).replace('<', '\\u003c')
             block = r'(<script id="replay-data" type="application/json">)[\s\S]*?(</script>)'
             updated, count = re.subn(block, lambda match: match[1] + payload + match[2], text)

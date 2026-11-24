@@ -4,7 +4,7 @@ An educational order flow replay for E-mini Nasdaq-100 (NQ) futures. Follow rest
 
 ## Preview
 
-[**Play the interactive demo**](https://yuipan0611.github.io/nq-orderflow-replay/synthetic-replay.html) · [View the full-size screenshot](docs/replay-overview.jpg)
+[**Play the synthetic demo**](https://yuipan0611.github.io/nq-orderflow-replay/synthetic-replay.html) · [**Open your own DBN file**](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html) · [View the full-size screenshot](docs/replay-overview.jpg)
 
 ![Animated NQ replay showing the order book heatmap, trade bubbles, and depth ladder updating during playback](docs/replay-preview.gif)
 
@@ -56,6 +56,16 @@ The original command using `--source` on its own still selects **2026-01-05 05:0
 
 ## Replay a Databento DBN file
 
+### In a browser
+
+1. [Open the local-file player](https://yuipan0611.github.io/nq-orderflow-replay/replay-player.html) and choose your Databento `.dbn.zst` file.
+2. Choose the UTC date and NQ outright contract. Enter a start and end time or select **Find a trade window** to get a suggested range.
+3. Select **Load replay**, then use **Play** and the timeline.
+
+The browser accepts Databento DBN v1–v3 with CME Globex `GLBX.MDP3` `mbp-10` data and embedded symbol mappings. Each window can span up to five minutes on one UTC date. The browser decompresses the file in a background worker and keeps the selected replay in memory. The file, symbol choices, and replay stay on your device. Use **Clear file** to remove them from the page. No installation or API key is required.
+
+### From the command line
+
 For a local CME Globex `GLBX.MDP3` `mbp-10` file, install the optional reader once.
 
 ```sh
@@ -80,7 +90,7 @@ For this project, start with CME futures **market depth** for a specific NQ cont
 
 | Source | How to get depth | Import into this replay |
 | --- | --- | --- |
-| **Databento** | Request CME Globex data (`GLBX.MDP3`) using the Historical API or batch download. Choose `mbp-10` for aggregated top-ten depth and trades. | Load an `mbp-10` DBN file directly with [`--dbn`](#replay-a-databento-dbn-file). [Historical API quickstart](https://databento.com/docs/quickstart/historical) · [MBP-10 schema](https://databento.com/docs/schemas/mbp-10) |
+| **Databento** | Request CME Globex data (`GLBX.MDP3`) using the Historical API or batch download. Choose `mbp-10` for aggregated top-ten depth and trades. | Load an `mbp-10` DBN file directly with [the browser player](#in-a-browser) or [`--dbn`](#from-the-command-line). [Historical API quickstart](https://databento.com/docs/quickstart/historical) · [MBP-10 schema](https://databento.com/docs/schemas/mbp-10) |
 | **NinjaTrader Market Replay** | In NinjaTrader, use **Tools → Historical Data → Get Market Replay data** and check availability for your contract and date. Market Replay includes Level I and Level II. The separate Historical Tick mode provides tick data. | Replay files are for NinjaTrader Playback. Import here requires converting the Level I and Level II events to the event CSV. [Playback setup](https://ninjatrader.com/support/helpguides/nt8/set_up12.htm) · [Playback data types](https://static.ninjatrader.com/support/helpGuides/nt8/playback.htm) |
 | **Sierra Chart / Denali** | Enable historical market depth downloads for the CME contract in Sierra Chart. The platform stores depth in daily `.depth` files. | Decode the depth records and combine them with timestamped quotes and trades before converting to the event CSV. [Historical depth setup](https://www.sierrachart.com/index.php?ID=375&page=doc/StudiesReference.php) · [Depth file format](https://www.sierrachart.com/index.php?page=doc/MarketDepthDataFileFormat.html) |
 
@@ -137,6 +147,6 @@ The original clip contains **3,217 events**, including **1,874 depth updates**, 
 
 - [`replay.py`](replay.py) parses the recording, builds the replay, prints validation statistics, and writes the standalone page.
 - [`databento_input.py`](databento_input.py) reads local CME MBP-10 files and converts book snapshots and trades into replay events.
-- [`replay-template.html`](replay-template.html) contains the Canvas chart and player controls.
+- [`docs/replay-player.html`](docs/replay-player.html) contains the browser and offline Canvas player. [`docs/local-dbn-worker.js`](docs/local-dbn-worker.js) parses browser files using the bundled [fzstd decoder](https://github.com/101arrowz/fzstd/tree/v0.1.1).
 - [`scripts/build_samples.py`](scripts/build_samples.py) generates the synthetic CSVs. [`samples.json`](samples.json) records their release version, windows, and checksums.
 - `index.html` is generated locally and ignored by Git because it embeds the replay data.
