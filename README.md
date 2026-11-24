@@ -4,11 +4,11 @@ An offline order flow viewer for E-mini Nasdaq-100 (NQ) futures. Replay a one-mi
 
 ## Preview
 
+[**Play the interactive demo**](https://yuipan0611.github.io/nq-orderflow-replay/synthetic-replay.html) · [View the full-size screenshot](docs/replay-overview.jpg)
+
 ![Animated NQ replay showing the order book heatmap, trade bubbles, and depth ladder updating during playback](docs/replay-preview.gif)
 
-[View the full-size screenshot](docs/replay-overview.jpg) · [Open the interactive demo file](docs/synthetic-replay.html)
-
-The preview uses synthetic market data. To try the full 60-second replay offline, open the demo file, choose **Download raw file**, then open the saved HTML in your browser. You can play or pause, seek, change playback speed, toggle chart layers, and hover over trades or price levels.
+The 60-second demo uses synthetic market data. Use the player to play or pause, drag the timeline to seek, change playback speed, toggle chart layers, or hover over trades and price levels.
 
 <details>
 <summary>Trade tooltip and depth ladder</summary>
