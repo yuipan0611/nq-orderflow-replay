@@ -54,7 +54,7 @@ summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:8
       <h1>NQ Replay</h1>
       <p class="subtitle">Order book heatmap and trade bubbles</p>
     </div>
-    <div class="session">2026-01-05 <span>05:00:02–05:01:02 · Source time</span></div>
+    <div class="session"><strong id="session-kind"></strong><span id="session-window"></span></div>
   </header>
   <section class="workspace" aria-label="NQ replay player">
     <div class="tape">
@@ -82,8 +82,8 @@ summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:8
     <div class="transport">
       <button id="play" type="button" aria-label="Play">▶ Play</button>
       <button id="restart" type="button">Restart</button>
-      <input id="scrub" type="range" min="0" max="60000" step="10" aria-label="Replay position">
-      <output id="progress" for="scrub">00:00 / 01:00</output>
+      <input id="scrub" type="range" min="0" step="10" aria-label="Replay position">
+      <output id="progress" for="scrub"></output>
       <select id="speed" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
     </div>
   </section>
@@ -105,23 +105,27 @@ const ctx = canvas.getContext("2d");
 const heat = document.createElement("canvas");
 const buy = "#58dfc6", sell = "#fda6c5", neutral = "#c0cddd";
 const shorts = {1:["Inferred buy",buy], "-1":["Inferred sell",sell], 0:["Unknown side",neutral]};
-const allFrames = [data.initial, ...data.frames].filter(Boolean);
-const prices = data.trades.map(trade => trade[1]);
-const amounts = [];
-for (const [bid, bidSize, ask, askSize, levels] of allFrames) {
-  prices.push(bid, ask);
-  amounts.push(bidSize, askSize);
-  for (const [price, size] of levels) {
-    prices.push(price);
-    amounts.push(size);
-  }
+let minimumTick = Infinity, maximumTick = -Infinity, largestSize = 0;
+function includePrice(tick, size = 0) {
+  minimumTick = Math.min(minimumTick, tick);
+  maximumTick = Math.max(maximumTick, tick);
+  largestSize = Math.max(largestSize, size);
 }
-const low = Math.min(...prices) - 2;
-const high = Math.max(...prices) + 2;
-const heatLimit = Math.ceil(Math.max(...amounts) / 5) * 5;
+for (const trade of data.trades) includePrice(trade[1]);
+for (const frame of [data.initial, ...data.frames]) {
+  if (!frame) continue;
+  const [bid, bidSize, ask, askSize, levels] = frame;
+  includePrice(bid, bidSize);
+  includePrice(ask, askSize);
+  for (const [price, size] of levels) includePrice(price, size);
+}
+const low = minimumTick - 2;
+const high = maximumTick + 2;
+const heatLimit = Math.max(5, Math.ceil(largestSize / 5) * 5);
 const tickCount = high - low + 1;
 heat.width = data.frames.length;
-heat.height = tickCount;
+heat.height = Math.min(tickCount, 2048);
+const heatRow = heat.height / tickCount;
 
 function tone(size) {
   const scale = [[30,36,65],[65,48,91],[130,73,109],[193,109,110],[255,213,145]];
@@ -136,7 +140,7 @@ for (const [index, frame] of data.frames.entries()) {
   for (const [price, size] of [...levels, [bid, bidSize], [ask, askSize]]) {
     if (size <= 0) continue;
     pix.fillStyle = "rgb(" + tone(size).join(",") + ")";
-    pix.fillRect(index, high - price, 1, 1);
+    pix.fillRect(index, (high - price) * heatRow, 1, heatRow);
   }
 }
 function contracts(size) {
@@ -145,12 +149,12 @@ function contracts(size) {
 $("scaleMax").textContent = contracts(heatLimit);
 const checks = data.checks;
 $("evidence").textContent =
-  checks.rows.toLocaleString("en-US") + " source events, including "
-  + checks.depthEvents.toLocaleString("en-US") + " depth updates. "
-  + checks.tradeCount + " trades totaled " + contracts(checks.volume)
+  (checks.rows ?? 0).toLocaleString("en-US") + " source events, including "
+  + (checks.depthEvents ?? 0).toLocaleString("en-US") + " depth updates. "
+  + checks.tradeCount + " trades totaled " + contracts(checks.volume ?? 0)
   + ". Aggressor side was unknown for " + checks.unknownAggressor + " trades. "
   + checks.framesWithBothDepthSides + " frames had visible depth on both sides. "
-  + checks.rankOneExact + " of " + checks.rankOneEligible
+  + (checks.rankOneExact ?? 0) + " of " + (checks.rankOneEligible ?? 0)
   + " eligible L2 rank-one updates were exactly one tick from the best quote on the same side.";
 
 const priceText = tick => (tick / 4).toFixed(2);
@@ -168,7 +172,14 @@ function atFrame(ms) {
   return index < 0 ? data.initial : data.frames[Math.min(index, data.frames.length - 1)];
 }
 
-let position = 20_000;
+$("session-kind").textContent = data.synthetic ? "SYNTHETIC DATA" : data.date;
+const sessionRange = data.windowStart + "–" + timeText(data.duration);
+$("session-window").textContent = data.synthetic
+  ? data.date + " · " + sessionRange
+  : sessionRange + " · Source time";
+$("scrub").max = data.duration;
+
+let position = Math.min(20_000, Math.floor(data.duration / 30) * 10);
 let running = false, lastAnimation = null, animationId = 0;
 let width, height, plot, pointer;
 const theme = {
@@ -210,7 +221,7 @@ function drawHeat() {
   const columns = Math.floor(position / data.step);
   if (columns <= 0) return;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(heat, 0, 0, columns, tickCount,
+  ctx.drawImage(heat, 0, 0, columns, heat.height,
     plot.x, plot.y, plot.w * columns / data.frames.length, plot.h);
 }
 function drawQuotes(column) {

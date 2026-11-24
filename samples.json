@@ -1,0 +1,29 @@
+{
+  "tag": "samples-v1",
+  "samples": {
+    "synthetic-open": {
+      "file": "synthetic-open.csv.gz",
+      "date": "2026-01-06",
+      "start": "09:30:00",
+      "end": "09:33:00",
+      "sha256": "e8af5089866e53998d5bb86bb354861f565a1baa5a8db5cbb5332a93d44f633f",
+      "size": 69167
+    },
+    "synthetic-imbalance": {
+      "file": "synthetic-imbalance.csv.gz",
+      "date": "2026-01-07",
+      "start": "10:00:00",
+      "end": "10:03:00",
+      "sha256": "a27e82899502b4e349a67c7a790ce319c65096a6cbdf30b343f19b808f49ec19",
+      "size": 65277
+    },
+    "synthetic-quiet": {
+      "file": "synthetic-quiet.csv.gz",
+      "date": "2026-01-08",
+      "start": "14:00:00",
+      "end": "14:03:00",
+      "sha256": "003735a9069ee62d0472067dc5b68fc984d87a39802754c7ef77c09505d0bb79",
+      "size": 63279
+    }
+  }
+}

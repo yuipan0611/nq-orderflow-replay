@@ -1,4 +1,5 @@
 /index.html
 __pycache__/
 *.csv
+*.csv.gz
 *.zip

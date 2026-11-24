@@ -1,6 +1,6 @@
 # NQ Order Flow Replay
 
-An offline order flow viewer for E-mini Nasdaq-100 (NQ) futures. Replay a one-minute recording as a time-and-price heatmap with trade bubbles and a depth ladder at the current replay position.
+An educational order flow replay for E-mini Nasdaq-100 (NQ) futures. Follow resting orders, trades, and current depth on a time-and-price heatmap. Start with synthetic recordings, then use a recording you are authorized to access.
 
 ## Preview
 
@@ -19,19 +19,52 @@ The 60-second demo uses synthetic market data. Use the player to play or pause, 
 
 ## Quick start
 
-The historical replay uses the January 5, 2026 recording from `05:00:02` up to `05:01:02`. The player displays timestamps as recorded. The source time zone is unverified.
+Clone the repository and run the following command from its root with Python 3.10 or later. The standard library handles the download and replay.
 
-You need Python 3.10 or later, a modern browser, and your own copy of the `20260105.csv` recording. The generator uses the Python standard library, so there are no packages to install. Market data is kept outside the repository.
-
-```powershell
-git clone https://github.com/yuipan0611/nq-orderflow-replay.git
-cd nq-orderflow-replay
-python replay.py --source "C:\path\to\20260105.csv" --write
+```sh
+python replay.py --sample synthetic-open --write
 ```
 
-Replace the example path with the location of your CSV. If you omit `--source`, the generator looks for `Desktop/NQ_L2/NQ_L2_2026-01/01/20260105.csv` under your home directory.
+Open the generated `index.html` in a browser. It runs offline. On the first run, the command downloads the selected gzip file from [Synthetic replay samples v1](https://github.com/yuipan0611/nq-orderflow-replay/releases/tag/samples-v1) and checks its SHA-256. Subsequent runs reuse the verified file in `~/.cache/nq-orderflow-replay/samples-v1/`.
 
-Open the generated `index.html` in your browser. It contains everything needed for offline playback. To print replay statistics without writing HTML, run the same command without `--write`.
+| Sample | What to look for |
+| --- | --- |
+| `synthetic-open` | Fast price changes and frequent trades |
+| `synthetic-imbalance` | A bright bid-side liquidity band and more buy-initiated trades |
+| `synthetic-quiet` | A narrow price range and sparse trades |
+
+Each sample has a three-minute default window. Override the start and end to study a shorter segment.
+
+```sh
+python replay.py --sample synthetic-imbalance --start 10:00:30 --end 10:01:15 --write
+```
+
+## Replay your own recording
+
+Pass a local `.csv` or `.csv.gz` in the [event format below](#input-format).
+
+```sh
+python replay.py --source "/path/to/recording.csv.gz" --date 2026-01-06 --start 09:30:00 --end 09:32:00 --write
+```
+
+- Use the date and clock written in your recording. The player shows source time as recorded.
+- The start is inclusive and the end is exclusive. Select up to five minutes within one calendar date. The file must contain an event at or before the start and an event at or after the end on that date.
+- Keep the day's opening book or earlier events for warm-up. Include the end boundary event even when preparing a smaller extract.
+- Omit `--write` to print replay statistics without generating HTML.
+
+The original command using `--source` on its own still selects **2026-01-05 05:00:02–05:01:02**. With no source or sample specified, it looks for `Desktop/NQ_L2/NQ_L2_2026-01/01/20260105.csv` under your home directory. The time zone of that recording is unverified.
+
+## Where to get historical Level 2 data
+
+For this project, start with CME futures **market depth** for a specific NQ contract month. Look for Level 2 or market-by-price depth and timestamped trades so you can reconstruct both chart layers. Verify the dates and contract coverage with the provider before purchasing.
+
+| Source | How to get depth | Import into this replay |
+| --- | --- | --- |
+| **Databento** | Request CME Globex data (`GLBX.MDP3`) using the Historical API or batch download. `mbp-10` provides aggregated top-ten depth and trades. `mbo` provides order-level events for a deeper exercise. | Convert the provider's records to the event CSV below before importing. [Historical API quickstart](https://databento.com/docs/quickstart/historical) · [Schemas](https://databento.com/docs/schemas) |
+| **NinjaTrader Market Replay** | In NinjaTrader, use **Tools → Historical Data → Get Market Replay data** and check availability for your contract and date. Market Replay includes Level I and Level II. The separate Historical Tick mode provides tick data. | Replay files are for NinjaTrader Playback. Import here requires converting the Level I and Level II events to the event CSV. [Playback setup](https://ninjatrader.com/support/helpguides/nt8/set_up12.htm) · [Playback data types](https://static.ninjatrader.com/support/helpGuides/nt8/playback.htm) |
+| **Sierra Chart / Denali** | Enable historical market depth downloads for the CME contract in Sierra Chart. The platform stores depth in daily `.depth` files. | Decode the depth records and combine them with timestamped quotes and trades before converting to the event CSV. [Historical depth setup](https://www.sierrachart.com/index.php?ID=375&page=doc/StudiesReference.php) · [Depth file format](https://www.sierrachart.com/index.php?page=doc/MarketDepthDataFileFormat.html) |
+
+The public samples are generated from scratch. Check your provider and exchange terms before publishing licensed market data, including CSV exports or generated HTML that embeds the recording. [CME historical distribution guidelines](https://www.cmegroup.com/market-data/distributor/files/cme-group-data-licensing-policy-guidelines-historical-information-distribution.pdf)
 
 ## Read the chart
 
@@ -59,18 +92,18 @@ The bars on the right show a **single snapshot** at the replay cursor. Each row 
 
 At about **00:00:55**, the highlighted rows show **6 contracts at the best bid of 20,599.50** and **19 contracts at the best ask of 20,600.00**.
 
-The player opens paused 20 seconds into the clip so the chart is visible immediately. Use **Play** or **Pause** to control playback and **Restart** to return to the start. Drag the timeline to seek, choose a speed from 0.5× to 4×, or toggle either chart layer. Hover over the chart for a price-level or trade tooltip.
+The player opens paused up to 20 seconds into the clip so the chart is visible immediately. Use **Play** or **Pause** to control playback and **Restart** to return to the start. Drag the timeline to seek, choose a speed from 0.5× to 4×, or toggle either chart layer. Hover over the chart for a price-level or trade tooltip.
 
 ## Input format
 
-The demo expects a headerless, semicolon-delimited event recording. Timestamps use `YYYYMMDDHHMMSSffffff`, with six fractional-second digits. Prices must align with NQ's 0.25-point tick. The generator reads the opening events before the clip to initialize the book and preserves file order when timestamps tie.
+The generator reads plain or gzip-compressed, headerless, semicolon-delimited event files. Timestamps use `YYYYMMDDHHMMSSffffff`, with six fractional-second digits. Prices must align with NQ's 0.25-point tick. The generator reads the opening events before the clip to initialize the book and preserves file order when timestamps tie.
 
 | Stream | Row layout | Event codes used in the demo |
 | --- | --- | --- |
 | Level 1 | `timestamp;1;event_code;price;size` | `0` bid quote, `1` ask quote, `2` trade. Other Level 1 codes are counted as market statistics. |
 | Level 2 | `timestamp;2;side_code;price;size;rank;action` | Side `0` bid or `1` ask. Action `0` add, `1` update, or `2` remove. The parser accepts ranks 1–10. |
 
-The input path is configurable. The date, time window, and column layout are fixed for this demo.
+Keep rows in chronological order. For files containing multiple dates, the generator initializes the book from events on the selected date.
 
 ## Replay and validation
 
@@ -84,4 +117,5 @@ The original clip contains **3,217 events**, including **1,874 depth updates**, 
 
 - [`replay.py`](replay.py) parses the recording, builds the replay, prints validation statistics, and writes the standalone page.
 - [`replay-template.html`](replay-template.html) contains the Canvas chart and player controls.
+- [`scripts/build_samples.py`](scripts/build_samples.py) generates the synthetic CSVs. [`samples.json`](samples.json) records their release version, windows, and checksums.
 - `index.html` is generated locally and ignored by Git because it embeds the replay data.
