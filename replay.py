@@ -1,6 +1,7 @@
-"""Build a standalone NQ order flow replay from a local CSV or a synthetic sample."""
+"""Build a standalone NQ order flow replay from a local recording or a synthetic sample."""
 import argparse
 from collections import Counter
+from contextlib import closing
 from datetime import date, time
 from decimal import Decimal, InvalidOperation
 import gzip
@@ -13,6 +14,8 @@ import ssl
 import sys
 from tempfile import NamedTemporaryFile
 from urllib.request import urlopen
+
+from databento_input import read_rows as read_dbn_rows
 
 SOURCE = Path.home() / 'Desktop/NQ_L2/NQ_L2_2026-01/01/20260105.csv'
 DEFAULT_DATE = date(2026, 1, 5)
@@ -45,6 +48,10 @@ class Book:
                     del self.depth[side][seen]
         else:
             self.quote[side] = (price, size)
+
+    def clear_quote(self, side):
+        self.quote[side] = None
+        self.depth[side].clear()
 
     def set_depth(self, side, price, size, action):
         levels = self.depth[side]
@@ -86,7 +93,7 @@ def seconds_since_midnight(value):
     return (clock.hour * 60 + clock.minute) * 60 + clock.second
 
 
-def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END):
+def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END, *, symbol=None):
     start_seconds = seconds_since_midnight(start)
     end_seconds = seconds_since_midnight(end)
     duration_seconds = end_seconds - start_seconds
@@ -96,6 +103,8 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
     stop_us = end_seconds * 1_000_000
     duration_ms = duration_seconds * 1000
     date_prefix = replay_date.isoformat().replace('-', '')
+    if symbol is not None:
+        symbol = symbol.upper()
 
     book = Book()
     frames, trades = [], []
@@ -107,8 +116,12 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
     captured_start = False
     found_date = False
 
-    opener = gzip.open if source.suffix.lower() == '.gz' else open
-    with opener(source, 'rt', encoding='ascii') as lines:
+    if symbol is not None:
+        source_rows = closing(read_dbn_rows(source, symbol, replay_date, start_us, stop_us))
+    else:
+        opener = gzip.open if source.suffix.lower() == '.gz' else open
+        source_rows = opener(source, 'rt', encoding='ascii')
+    with source_rows as lines:
         for number, line in enumerate(lines, 1):
             stamp = line.partition(';')[0]
             if len(stamp) != 20 or not stamp.isdecimal() or stamp < last_timestamp:
@@ -134,6 +147,8 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
                 cutoff += step_us
             if event_us >= stop_us:
                 break
+            if symbol is not None and line == stamp:
+                continue
 
             fields = line.rstrip('\r\n').split(';')
             if len(fields) < 5:
@@ -146,7 +161,10 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
                 raise ValueError(f'off-tick price {price}')
             ticks, quantity = int(raw_ticks), int(size)
             if stream == '1' and code in ('0', '1') and not extra:
-                book.set_quote(int(code), ticks, quantity)
+                if symbol is not None and ticks == quantity == 0:
+                    book.clear_quote(int(code))
+                else:
+                    book.set_quote(int(code), ticks, quantity)
                 if in_window:
                     checks['quotes'] += 1
             elif stream == '1' and code == '2' and not extra:
@@ -193,7 +211,7 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
     checks['tradeCount'] = len(trades)
     checks.setdefault('unknownAggressor', 0)
     assert checks['rows'] == checks['quotes'] + checks['depthEvents'] + checks['marketStats'] + len(trades)
-    return {
+    data = {
         'source': source.name,
         'date': replay_date.isoformat(),
         'windowStart': start,
@@ -205,6 +223,9 @@ def build(source, replay_date=DEFAULT_DATE, start=DEFAULT_START, end=DEFAULT_END
         'trades': trades,
         'checks': checks,
     }
+    if symbol is not None:
+        data.update(symbol=symbol, timeZone='UTC')
+    return data
 
 
 def write_atomic(path, content):
@@ -252,23 +273,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     inputs = parser.add_mutually_exclusive_group()
     inputs.add_argument('--source', type=Path, help='Local .csv or .csv.gz recording.')
+    inputs.add_argument('--dbn', type=Path, help='Local Databento MBP-10 .dbn.zst recording.')
     inputs.add_argument('--sample', choices=samples, help='Download a synthetic release sample on first use.')
+    parser.add_argument('--symbol', help='Databento outright contract to read from --dbn.')
     parser.add_argument('--date', metavar='YYYY-MM-DD', help='Date in the recording.')
     parser.add_argument('--start', metavar='HH:MM:SS', help='Start time in the recording, inclusive.')
     parser.add_argument('--end', metavar='HH:MM:SS', help='End time in the recording, exclusive.')
     parser.add_argument('--write', action='store_true', help='Generate the standalone index.html.')
     args = parser.parse_args()
+    if args.dbn and not all((args.symbol, args.date, args.start, args.end)):
+        parser.error('--dbn requires --symbol, --date, --start, and --end')
+    if args.symbol and not args.dbn:
+        parser.error('--symbol requires --dbn')
 
     sample = samples.get(args.sample)
     defaults = sample or {'date': DEFAULT_DATE.isoformat(), 'start': DEFAULT_START, 'end': DEFAULT_END}
-    source = args.source or SOURCE
+    source = args.dbn or args.source or SOURCE
     try:
         replay_date = parse_date(args.date or defaults['date'])
         start = args.start or defaults['start']
         end = args.end or defaults['end']
         if sample:
             source = fetch_sample(manifest['tag'], sample)
-        data = build(source, replay_date, start, end)
+        data = build(source, replay_date, start, end, symbol=args.symbol)
         if sample:
             data['synthetic'] = True
         if args.write:

@@ -54,13 +54,33 @@ python replay.py --source "/path/to/recording.csv.gz" --date 2026-01-06 --start 
 
 The original command using `--source` on its own still selects **2026-01-05 05:00:02–05:01:02**. With no source or sample specified, it looks for `Desktop/NQ_L2/NQ_L2_2026-01/01/20260105.csv` under your home directory. The time zone of that recording is unverified.
 
+## Replay a Databento DBN file
+
+For a local CME Globex `GLBX.MDP3` `mbp-10` file, install the optional reader once.
+
+```sh
+python -m pip install "databento-dbn>=0.70"
+```
+
+From the repository root, run one command to select an NQ contract and generate the standalone player.
+
+```sh
+python replay.py --dbn "/path/to/recording.mbp-10.dbn.zst" --symbol NQH6 --date 2026-01-06 --start 14:30:00 --end 14:32:00 --write
+```
+
+Open the generated `index.html` in a browser. The importer reads the existing file locally, resolves the single-contract raw symbol from the embedded DBN metadata, and converts the selected book and trade events in memory. It needs no Databento API key. [Databento DBN format and decoder](https://github.com/databento/dbn)
+
+- Use UTC capture times (`ts_recv`). Select a window of up to five minutes within one UTC date. The selected contract needs a record at or before the start and a record at or after the end. The importer uses the last earlier book to initialize the clip. [Databento timestamp fields](https://databento.com/docs/conventions/common-fields-enums-types#ts-recv)
+- Use the outright symbol present in the file, such as `NQH6`. Spread and continuous aliases are outside this importer’s contract selection. The chart uses the replay’s existing nine-tick depth range and infers trade direction from the preceding best quotes.
+- The generated HTML embeds the selected market data. Keep the source file and generated player local under your data provider’s terms. The repository ignores DBN files and the generated root `index.html`.
+
 ## Where to get historical Level 2 data
 
 For this project, start with CME futures **market depth** for a specific NQ contract month. Look for Level 2 or market-by-price depth and timestamped trades so you can reconstruct both chart layers. Verify the dates and contract coverage with the provider before purchasing.
 
 | Source | How to get depth | Import into this replay |
 | --- | --- | --- |
-| **Databento** | Request CME Globex data (`GLBX.MDP3`) using the Historical API or batch download. `mbp-10` provides aggregated top-ten depth and trades. `mbo` provides order-level events for a deeper exercise. | Convert the provider's records to the event CSV below before importing. [Historical API quickstart](https://databento.com/docs/quickstart/historical) · [Schemas](https://databento.com/docs/schemas) |
+| **Databento** | Request CME Globex data (`GLBX.MDP3`) using the Historical API or batch download. Choose `mbp-10` for aggregated top-ten depth and trades. | Load an `mbp-10` DBN file directly with [`--dbn`](#replay-a-databento-dbn-file). [Historical API quickstart](https://databento.com/docs/quickstart/historical) · [MBP-10 schema](https://databento.com/docs/schemas/mbp-10) |
 | **NinjaTrader Market Replay** | In NinjaTrader, use **Tools → Historical Data → Get Market Replay data** and check availability for your contract and date. Market Replay includes Level I and Level II. The separate Historical Tick mode provides tick data. | Replay files are for NinjaTrader Playback. Import here requires converting the Level I and Level II events to the event CSV. [Playback setup](https://ninjatrader.com/support/helpguides/nt8/set_up12.htm) · [Playback data types](https://static.ninjatrader.com/support/helpGuides/nt8/playback.htm) |
 | **Sierra Chart / Denali** | Enable historical market depth downloads for the CME contract in Sierra Chart. The platform stores depth in daily `.depth` files. | Decode the depth records and combine them with timestamped quotes and trades before converting to the event CSV. [Historical depth setup](https://www.sierrachart.com/index.php?ID=375&page=doc/StudiesReference.php) · [Depth file format](https://www.sierrachart.com/index.php?page=doc/MarketDepthDataFileFormat.html) |
 
@@ -116,6 +136,7 @@ The original clip contains **3,217 events**, including **1,874 depth updates**, 
 ## Project files
 
 - [`replay.py`](replay.py) parses the recording, builds the replay, prints validation statistics, and writes the standalone page.
+- [`databento_input.py`](databento_input.py) reads local CME MBP-10 files and converts book snapshots and trades into replay events.
 - [`replay-template.html`](replay-template.html) contains the Canvas chart and player controls.
 - [`scripts/build_samples.py`](scripts/build_samples.py) generates the synthetic CSVs. [`samples.json`](samples.json) records their release version, windows, and checksums.
 - `index.html` is generated locally and ignored by Git because it embeds the replay data.

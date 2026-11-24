@@ -91,7 +91,7 @@ summary{cursor:pointer;color:var(--text);width:max-content}details p{max-width:8
   <details>
     <summary>Replay validation</summary>
     <p id="evidence"></p>
-    <p>Level 1 supplies the best bid, best ask, and their sizes. Level 2 adds, updates, and removals are applied by side and price. The replay shows observed levels up to nine ticks from the best quote on each side. The source time zone and deeper levels are unverified.</p>
+    <p>Level 1 supplies the best bid, best ask, and their sizes. Level 2 adds, updates, and removals are applied by side and price. The replay shows observed levels up to nine ticks from the best quote on each side. <span id="clockNote"></span></p>
     <p>A trade at the preceding best ask is inferred as buy-initiated. A trade at the preceding best bid is inferred as sell-initiated. Other trades retain an unknown side.</p>
   </details>
 </main>
@@ -149,7 +149,7 @@ function contracts(size) {
 $("scaleMax").textContent = contracts(heatLimit);
 const checks = data.checks;
 $("evidence").textContent =
-  (checks.rows ?? 0).toLocaleString("en-US") + " source events, including "
+  (checks.rows ?? 0).toLocaleString("en-US") + (data.symbol ? " replay rows, including " : " source events, including ")
   + (checks.depthEvents ?? 0).toLocaleString("en-US") + " depth updates. "
   + checks.tradeCount + " trades totaled " + contracts(checks.volume ?? 0)
   + ". Aggressor side was unknown for " + checks.unknownAggressor + " trades. "
@@ -172,11 +172,14 @@ function atFrame(ms) {
   return index < 0 ? data.initial : data.frames[Math.min(index, data.frames.length - 1)];
 }
 
-$("session-kind").textContent = data.synthetic ? "SYNTHETIC DATA" : data.date;
+$("session-kind").textContent = data.synthetic ? "SYNTHETIC DATA" : [data.symbol, data.date].filter(Boolean).join(" · ");
 const sessionRange = data.windowStart + "–" + timeText(data.duration);
 $("session-window").textContent = data.synthetic
   ? data.date + " · " + sessionRange
-  : sessionRange + " · Source time";
+  : sessionRange + " · " + (data.timeZone || "Source time");
+$("clockNote").textContent = data.timeZone
+  ? "Times are Databento capture timestamps in UTC."
+  : "The source time zone and deeper levels are unverified.";
 $("scrub").max = data.duration;
 
 let position = Math.min(20_000, Math.floor(data.duration / 30) * 10);

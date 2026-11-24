@@ -2,4 +2,6 @@
 __pycache__/
 *.csv
 *.csv.gz
+*.dbn
+*.dbn.zst
 *.zip
