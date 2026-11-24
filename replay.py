@@ -6,8 +6,11 @@ from decimal import Decimal, InvalidOperation
 import gzip
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
+import ssl
+import sys
 from tempfile import NamedTemporaryFile
 from urllib.request import urlopen
 
@@ -21,7 +24,6 @@ RADIUS_TICKS = 9
 HERE = Path(__file__).resolve().parent
 CACHE_DIR = Path.home() / '.cache' / 'nq-orderflow-replay'
 RELEASES = 'https://github.com/yuipan0611/nq-orderflow-replay/releases/download'
-
 
 
 class Book:
@@ -215,6 +217,17 @@ def write_atomic(path, content):
         temporary.unlink(missing_ok=True)
 
 
+def download_tls_context():
+    if sys.platform != 'darwin':
+        return None
+    bundle = Path('/etc/ssl/cert.pem')
+    paths = ssl.get_default_verify_paths()
+    configured = any(os.environ.get(name) for name in (paths.openssl_cafile_env, paths.openssl_capath_env))
+    if not (configured or paths.cafile or paths.capath) and bundle.is_file():
+        return ssl.create_default_context(cafile=str(bundle))
+    return None
+
+
 def fetch_sample(tag, sample):
     cache = CACHE_DIR / tag
     source = cache / sample['file']
@@ -223,7 +236,7 @@ def fetch_sample(tag, sample):
             return source
 
     url = f"{RELEASES}/{tag}/{sample['file']}"
-    with urlopen(url, timeout=30) as response:
+    with urlopen(url, timeout=30, context=download_tls_context()) as response:
         content = response.read(sample['size'] + 1)
     if len(content) != sample['size'] or sha256(content).hexdigest() != sample['sha256']:
         raise ValueError(f"downloaded sample failed its SHA-256 check: {sample['file']}")
